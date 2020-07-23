@@ -15,12 +15,13 @@ def _get_graph_edges(rad, pos1, pos2=None, self_loops=False):
     :param self_loops: boolean flag indicating whether to include self loops
     :return: (senders, receivers), edge features
     """
-    r = np.linalg.norm(_get_pos_diff(pos1, pos2), axis=2)
+    pos_diff = _get_pos_diff(pos1, pos2)
+    r = np.linalg.norm(pos_diff, axis=2)
     r[r > rad] = 0
     if not self_loops and pos2 is None:
         np.fill_diagonal(r, 0)
     edges = np.nonzero(r)
-    return edges, r[edges]
+    return edges, r[edges], np.hstack((pos_diff[:, :, 0][edges], pos_diff[:, :, 1][edges]))
 
 
 def _get_pos_diff(sender_loc, receiver_loc=None):
@@ -52,7 +53,8 @@ def _get_k_edges(k, pos1, pos2=None, self_loops=False, allow_nearest=False):
     :param allow_nearest: allow the nearest landmark as an action or remove it
     :return: (senders, receivers), edge features
     """
-    r = np.linalg.norm(_get_pos_diff(pos1, pos2), axis=2)
+    pos_diff = _get_pos_diff(pos1, pos2)
+    r = np.linalg.norm(pos_diff, axis=2)
 
     if not self_loops and pos2 is None:
         np.fill_diagonal(r, np.Inf)
@@ -68,7 +70,7 @@ def _get_k_edges(k, pos1, pos2=None, self_loops=False, allow_nearest=False):
         mask[np.arange(np.shape(pos1)[0])[:], idx] = 0
 
     edges = np.nonzero(mask)
-    return edges, r[edges]
+    return edges, r[edges], np.hstack((pos_diff[:, :, 0][edges], pos_diff[:, :, 1][edges]))
 
 
 
