@@ -33,6 +33,7 @@ font = {'family': 'sans-serif',
 # number of node and edge features
 N_NODE_FEAT = 3
 N_EDGE_FEAT = 2
+# N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
 # NEARBY_STARTS = False
@@ -493,7 +494,7 @@ class CoverageEnv(gym.Env):
         self.n_motion_edges = len(self.motion_edges[0])
 
         if self.nearby_starts:
-            n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
+            n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 10)
             self.start_region = [i in n_nearest for i in range(self.n_targets)]
         else:
             self.start_region = [True] * (self.n_agents - self.n_robots)
