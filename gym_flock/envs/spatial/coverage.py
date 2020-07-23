@@ -32,8 +32,7 @@ font = {'family': 'sans-serif',
 
 # number of node and edge features
 N_NODE_FEAT = 3
-N_EDGE_FEAT = 2
-# N_EDGE_FEAT = 1
+N_EDGE_FEAT = 3
 N_GLOB_FEAT = 1
 
 # NEARBY_STARTS = False
@@ -205,8 +204,10 @@ class CoverageEnv(gym.Env):
         receivers = receivers.astype(np.int)
 
         # compute edge distances
-        dists = np.linalg.norm(self.x[senders, :] - self.x[receivers, :], axis=1)
-        return (senders, receivers), dists
+        diffs = self.x[senders, :] - self.x[receivers, :]
+        dists = np.linalg.norm(diffs, axis=1)
+
+        return (senders, receivers), dists, diffs
 
     def _get_obs_reward(self):
         """
@@ -221,9 +222,9 @@ class CoverageEnv(gym.Env):
         """
 
         if PAD_ACTIONS:
-            action_edges, action_dist = self.get_action_edges()
+            action_edges, action_dist, action_diffs = self.get_action_edges()
         else:
-            action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+            action_edges, action_dist, action_diffs = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
                                                      self.x[self.n_robots:self.n_agents, 0:2],
                                                      allow_nearest=ALLOW_NEAREST)
             action_edges = (action_edges[0], action_edges[1] + self.n_robots)
@@ -239,40 +240,44 @@ class CoverageEnv(gym.Env):
         #     self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:
+            # TODO debug this
             # communication edges among robots
-            comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
+            comm_edges, comm_dist, comm_diffs = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
             # planning edges from robots to landmarks
-            plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2],
-                                                     self.x[self.n_robots:self.n_agents, 0:2])
+            plan_edges, plan_dist, plan_diffs = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2],
+                                                        self.x[self.n_robots:self.n_agents, 0:2])
             plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
             senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
             receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
-            edges_dist = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
+            edges_dist = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, 1))
+
+            edges_diffs = np.concatenate((plan_diffs, action_diffs, comm_diffs)).reshape((-1, 2))
+            edges_dist = np.hstack((edges_dist, edges_diffs))
 
         else:
             senders = action_edges[1]
             receivers = action_edges[0]
-            edges_dist = action_dist.reshape((-1, 1))
+            edges_dist = np.hstack((action_dist.reshape((-1, 1)), action_diffs))
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # normalize the edge distance by resolution
         edges_dist = edges_dist / self.res
 
-        if N_EDGE_FEAT == 2:
-            last_edges = np.zeros((len(senders), 1), dtype=np.bool)
-            if self.last_loc is not None:
-                for i in range(self.n_robots):
-                    last_edges = np.logical_or(last_edges,
-                                               np.logical_and(receivers == i, senders == self.last_loc[i]).reshape(
-                                                   (-1, 1)))
-                    last_edges = last_edges.reshape((-1, 1))
-
-            edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
-
-        else:
-            edges = edges_dist.reshape((-1, N_EDGE_FEAT))
+        # if N_EDGE_FEAT == 2:
+        #     last_edges = np.zeros((len(senders), 1), dtype=np.bool)
+        #     if self.last_loc is not None:
+        #         for i in range(self.n_robots):
+        #             last_edges = np.logical_or(last_edges,
+        #                                        np.logical_and(receivers == i, senders == self.last_loc[i]).reshape(
+        #                                            (-1, 1)))
+        #             last_edges = last_edges.reshape((-1, 1))
+        #
+        #     edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
+        #
+        # else:
+        edges = edges_dist.reshape((-1, N_EDGE_FEAT))
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -487,8 +492,9 @@ class CoverageEnv(gym.Env):
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
-        self.motion_edges, self.motion_dist = _get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
-                                                               self_loops=True)
+        self.motion_edges, self.motion_dist, self.motion_diff = _get_graph_edges(self.motion_radius,
+                                                                                 self.x[self.n_robots:, 0:2],
+                                                                                 self_loops=True)
         # cache motion edges
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
         self.n_motion_edges = len(self.motion_edges[0])
@@ -502,6 +508,7 @@ class CoverageEnv(gym.Env):
         self.senders[:self.n_motion_edges] = self.motion_edges[0]
         self.receivers[:self.n_motion_edges] = self.motion_edges[1]
         self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
+        self.edges[:self.n_motion_edges, 1:] = self.motion_diff.reshape((-1, 2))
 
         # problem's observation and action spaces
         self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
