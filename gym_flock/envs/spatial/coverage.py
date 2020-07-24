@@ -32,9 +32,10 @@ font = {'family': 'sans-serif',
 
 # number of node and edge features
 N_NODE_FEAT = 3
-N_EDGE_FEAT = 3
+N_EDGE_FEAT = 4
 N_GLOB_FEAT = 1
 
+LAST_EDGE_FEATURE = True
 # NEARBY_STARTS = False
 NEARBY_STARTS = True
 
@@ -265,19 +266,19 @@ class CoverageEnv(gym.Env):
         # normalize the edge distance by resolution
         edges_dist = edges_dist / self.res
 
-        # if N_EDGE_FEAT == 2:
-        #     last_edges = np.zeros((len(senders), 1), dtype=np.bool)
-        #     if self.last_loc is not None:
-        #         for i in range(self.n_robots):
-        #             last_edges = np.logical_or(last_edges,
-        #                                        np.logical_and(receivers == i, senders == self.last_loc[i]).reshape(
-        #                                            (-1, 1)))
-        #             last_edges = last_edges.reshape((-1, 1))
-        #
-        #     edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
-        #
-        # else:
-        edges = edges_dist.reshape((-1, N_EDGE_FEAT))
+        if LAST_EDGE_FEATURE:
+            last_edges = np.zeros((len(senders), 1), dtype=np.bool)
+            if self.last_loc is not None:
+                for i in range(self.n_robots):
+                    last_edges = np.logical_or(last_edges,
+                                               np.logical_and(receivers == i, senders == self.last_loc[i]).reshape(
+                                                   (-1, 1)))
+                    last_edges = last_edges.reshape((-1, 1))
+
+            edges = np.hstack((edges_dist, last_edges)).reshape((-1, N_EDGE_FEAT))
+
+        else:
+            edges = edges_dist.reshape((-1, N_EDGE_FEAT))
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -508,7 +509,7 @@ class CoverageEnv(gym.Env):
         self.senders[:self.n_motion_edges] = self.motion_edges[0]
         self.receivers[:self.n_motion_edges] = self.motion_edges[1]
         self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
-        self.edges[:self.n_motion_edges, 1:] = self.motion_diff.reshape((-1, 2))
+        self.edges[:self.n_motion_edges, 1:3] = self.motion_diff.reshape((-1, 2))
 
         # problem's observation and action spaces
         self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
