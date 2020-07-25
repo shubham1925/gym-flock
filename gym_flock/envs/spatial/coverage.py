@@ -151,6 +151,7 @@ class CoverageEnv(gym.Env):
         self.cached_solution = None
         self.graph_previous = None
         self.graph_cost = None
+        self.last_solution = None
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -167,6 +168,10 @@ class CoverageEnv(gym.Env):
         :return: described above
         """
         if action is not None:
+            if self.last_solution and not np.all(action == self.last_solution):
+                self.cached_solution = None
+                self.last_solution = None
+
             self.last_loc = self.closest_targets
 
             next_locs = copy.copy(action)
@@ -321,6 +326,7 @@ class CoverageEnv(gym.Env):
         self.step_counter = 0
         self.cached_solution = None
         self.last_loc = None
+        self.last_solution = None
         # self.node_history = None
 
         targets, graph_changed = self._generate_targets()
@@ -700,5 +706,6 @@ class CoverageEnv(gym.Env):
                                 next_loc[i] - self.n_robots, curr_loc[i] - self.n_robots] + self.n_robots
 
                 u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_step)[0][0]
+        self.last_solution = u_ind
 
         return u_ind
