@@ -168,7 +168,8 @@ class CoverageEnv(gym.Env):
         :return: described above
         """
         if action is not None:
-            if self.last_solution and not np.array_equal(np.array(action).flatten(), self.last_solution.flatten()):
+            if self.last_solution is not None and not np.array_equal(np.array(action).flatten(),
+                                                                     self.last_solution.flatten()):
                 self.cached_solution = None
                 self.last_solution = None
 
@@ -231,8 +232,8 @@ class CoverageEnv(gym.Env):
             action_edges, action_dist, action_diffs = self.get_action_edges()
         else:
             action_edges, action_dist, action_diffs = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                     self.x[self.n_robots:self.n_agents, 0:2],
-                                                     allow_nearest=ALLOW_NEAREST)
+                                                                   self.x[self.n_robots:self.n_agents, 0:2],
+                                                                   allow_nearest=ALLOW_NEAREST)
             action_edges = (action_edges[0], action_edges[1] + self.n_robots)
 
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
@@ -252,7 +253,7 @@ class CoverageEnv(gym.Env):
 
             # planning edges from robots to landmarks
             plan_edges, plan_dist, plan_diffs = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2],
-                                                        self.x[self.n_robots:self.n_agents, 0:2])
+                                                                 self.x[self.n_robots:self.n_agents, 0:2])
             plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
             senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
