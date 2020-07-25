@@ -510,6 +510,10 @@ class CoverageEnv(gym.Env):
         self.receivers[:self.n_motion_edges] = self.motion_edges[1]
         self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
         self.edges[:self.n_motion_edges, 1:3] = self.motion_diff.reshape((-1, 2))
+        self.edges[:self.n_motion_edges, 1:3] = self.motion_diff.reshape((-1, 2))
+
+        # Normalize edge distance
+        self.edges = self.edges / self.res
 
         # problem's observation and action spaces
         self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
