@@ -168,7 +168,7 @@ class CoverageEnv(gym.Env):
         :return: described above
         """
         if action is not None:
-            if self.last_solution and not np.all(action == self.last_solution):
+            if self.last_solution and not np.array_equal(np.array(action).flatten(), self.last_solution.flatten()):
                 self.cached_solution = None
                 self.last_solution = None
 
